@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Thread, ThreadState, ThreadPriority, CPUDataPoint, SystemStats } from '@/types/thread';
+import { useScheduler } from './useScheduler';
 
 const generateThreadId = () => `thread-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
@@ -18,6 +19,7 @@ export const useThreadManager = () => {
   const [cpuHistory, setCpuHistory] = useState<CPUDataPoint[]>([]);
   const [isSimulationRunning, setIsSimulationRunning] = useState(true);
   const threadCountRef = useRef(0);
+  const { calculatePriorityCpuShare } = useScheduler();
 
   const createThread = useCallback((customName?: string, priority?: ThreadPriority, parentId?: string): Thread => {
     threadCountRef.current += 1;
@@ -85,27 +87,31 @@ export const useThreadManager = () => {
     setIsSimulationRunning(prev => !prev);
   }, []);
 
-  // Simulate CPU usage changes
+  // Simulate CPU usage changes using Priority Scheduling
   useEffect(() => {
     if (!isSimulationRunning) return;
 
     const interval = setInterval(() => {
-      setThreads(prev => prev.map(thread => {
-        if (thread.state !== 'running') return thread;
+      setThreads(prev => {
+        const runningThreads = prev.filter(t => t.state === 'running');
         
-        const cpuChange = (Math.random() - 0.5) * 10;
-        const newCpuUsage = Math.max(0, Math.min(100, thread.cpuUsage + cpuChange));
-        
-        const memoryChange = (Math.random() - 0.5) * 5;
-        const newMemoryUsage = Math.max(0, Math.min(500, thread.memoryUsage + memoryChange));
-        
-        return {
-          ...thread,
-          cpuUsage: newCpuUsage,
-          memoryUsage: newMemoryUsage,
-          executionTime: thread.executionTime + 1000,
-        };
-      }));
+        return prev.map(thread => {
+          if (thread.state !== 'running') return thread;
+          
+          // Use priority-based CPU allocation
+          const newCpuUsage = calculatePriorityCpuShare(thread, runningThreads);
+          
+          const memoryChange = (Math.random() - 0.5) * 5;
+          const newMemoryUsage = Math.max(0, Math.min(500, thread.memoryUsage + memoryChange));
+          
+          return {
+            ...thread,
+            cpuUsage: newCpuUsage,
+            memoryUsage: newMemoryUsage,
+            executionTime: thread.executionTime + 1000,
+          };
+        });
+      });
 
       // Update CPU history
       setCpuHistory(prev => {
