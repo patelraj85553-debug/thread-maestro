@@ -32,6 +32,7 @@ const stateConfig: Record<ThreadState, { label: string; className: string }> = {
   paused: { label: 'Paused', className: 'bg-thread-paused text-warning-foreground' },
   stopped: { label: 'Stopped', className: 'bg-thread-stopped text-destructive-foreground' },
   waiting: { label: 'Waiting', className: 'bg-thread-waiting text-foreground' },
+  completed: { label: 'Completed', className: 'bg-primary text-primary-foreground' },
 };
 
 const priorityConfig: Record<ThreadPriority, { label: string; className: string }> = {
@@ -82,7 +83,8 @@ export const ThreadCard = ({
               thread.state === 'running' && 'bg-thread-running animate-pulse',
               thread.state === 'paused' && 'bg-thread-paused',
               thread.state === 'stopped' && 'bg-thread-stopped',
-              thread.state === 'waiting' && 'bg-thread-waiting'
+              thread.state === 'waiting' && 'bg-thread-waiting',
+              thread.state === 'completed' && 'bg-primary'
             )}
           />
           <div>
@@ -125,7 +127,7 @@ export const ThreadCard = ({
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3 mb-4">
+      <div className="grid grid-cols-2 gap-3 mb-4">
         <div className="flex items-center gap-2 bg-secondary/50 rounded-md px-2 py-1.5">
           <Cpu className="h-3.5 w-3.5 text-primary" />
           <div>
@@ -145,15 +147,24 @@ export const ThreadCard = ({
             </p>
           </div>
         </div>
-        
-        <div className="flex items-center gap-2 bg-secondary/50 rounded-md px-2 py-1.5">
-          <Clock className="h-3.5 w-3.5 text-warning" />
-          <div>
-            <p className="text-xs text-muted-foreground">Runtime</p>
-            <p className="font-mono text-sm font-semibold text-foreground">
-              {formatTime(thread.executionTime)}
-            </p>
-          </div>
+      </div>
+
+      {/* Progress Bar - Burst Time */}
+      <div className="mb-4">
+        <div className="flex justify-between text-xs mb-1">
+          <span className="text-muted-foreground">Progress</span>
+          <span className="font-mono text-foreground">
+            {formatTime(thread.executionTime)} / {formatTime(thread.burstTime)}
+          </span>
+        </div>
+        <div className="h-2 bg-secondary rounded-full overflow-hidden">
+          <div
+            className={cn(
+              'h-full rounded-full transition-all duration-500',
+              thread.state === 'completed' ? 'bg-primary' : 'bg-accent'
+            )}
+            style={{ width: `${Math.min(100, (thread.executionTime / thread.burstTime) * 100)}%` }}
+          />
         </div>
       </div>
 
@@ -178,7 +189,16 @@ export const ThreadCard = ({
 
       {/* Actions */}
       <div className="flex items-center gap-2">
-        {thread.state === 'running' ? (
+        {thread.state === 'completed' ? (
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled
+            className="flex-1"
+          >
+            ✓ Completed
+          </Button>
+        ) : thread.state === 'running' ? (
           <Button
             variant="warning"
             size="sm"
@@ -214,7 +234,7 @@ export const ThreadCard = ({
           variant="outline"
           size="sm"
           onClick={() => onStop(thread.id)}
-          disabled={thread.state === 'stopped'}
+          disabled={thread.state === 'stopped' || thread.state === 'completed'}
         >
           <Square className="h-4 w-4" />
         </Button>

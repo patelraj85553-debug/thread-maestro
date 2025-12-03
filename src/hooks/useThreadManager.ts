@@ -23,6 +23,8 @@ export const useThreadManager = () => {
 
   const createThread = useCallback((customName?: string, priority?: ThreadPriority, parentId?: string): Thread => {
     threadCountRef.current += 1;
+    // Random burst time between 10-30 seconds
+    const burstTime = (Math.floor(Math.random() * 21) + 10) * 1000;
     const newThread: Thread = {
       id: generateThreadId(),
       name: customName || generateThreadName(threadCountRef.current),
@@ -32,6 +34,7 @@ export const useThreadManager = () => {
       memoryUsage: Math.random() * 100 + 20,
       startTime: new Date(),
       executionTime: 0,
+      burstTime,
       parentId,
     };
     
@@ -98,6 +101,18 @@ export const useThreadManager = () => {
         return prev.map(thread => {
           if (thread.state !== 'running') return thread;
           
+          const newExecutionTime = thread.executionTime + 1000;
+          
+          // Check if thread should complete (burst time reached)
+          if (newExecutionTime >= thread.burstTime) {
+            return {
+              ...thread,
+              state: 'completed' as const,
+              cpuUsage: 0,
+              executionTime: thread.burstTime,
+            };
+          }
+          
           // Use priority-based CPU allocation
           const newCpuUsage = calculatePriorityCpuShare(thread, runningThreads);
           
@@ -108,7 +123,7 @@ export const useThreadManager = () => {
             ...thread,
             cpuUsage: newCpuUsage,
             memoryUsage: newMemoryUsage,
-            executionTime: thread.executionTime + 1000,
+            executionTime: newExecutionTime,
           };
         });
       });
@@ -146,6 +161,7 @@ export const useThreadManager = () => {
       pausedThreads: threads.filter(t => t.state === 'paused').length,
       stoppedThreads: threads.filter(t => t.state === 'stopped').length,
       waitingThreads: threads.filter(t => t.state === 'waiting').length,
+      completedThreads: threads.filter(t => t.state === 'completed').length,
       totalCpuUsage: threads.reduce((acc, t) => t.state === 'running' ? acc + t.cpuUsage : acc, 0),
       totalMemoryUsage: threads.reduce((acc, t) => acc + t.memoryUsage, 0),
     };

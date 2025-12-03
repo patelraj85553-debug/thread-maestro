@@ -1,5 +1,5 @@
 import { SystemStats as SystemStatsType } from '@/types/thread';
-import { Cpu, Layers, Play, Pause, Square, Clock } from 'lucide-react';
+import { Cpu, Layers, Play, Pause, Square, Clock, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface SystemStatsProps {
@@ -30,11 +30,11 @@ export const SystemStats = ({ stats }: SystemStatsProps) => {
       bgColor: 'bg-warning/10',
     },
     {
-      label: 'Stopped',
-      value: stats.stoppedThreads,
-      icon: Square,
-      color: 'text-destructive',
-      bgColor: 'bg-destructive/10',
+      label: 'Completed',
+      value: stats.completedThreads,
+      icon: CheckCircle2,
+      color: 'text-primary',
+      bgColor: 'bg-primary/10',
     },
     {
       label: 'CPU Usage',
