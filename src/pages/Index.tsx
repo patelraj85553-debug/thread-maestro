@@ -3,6 +3,7 @@ import { SystemStats } from '@/components/thread/SystemStats';
 import { CPUChart } from '@/components/thread/CPUChart';
 import { ThreadControls } from '@/components/thread/ThreadControls';
 import { ThreadList } from '@/components/thread/ThreadList';
+import { SchedulerInfo } from '@/components/thread/SchedulerInfo';
 import { Cpu, GitBranch, Terminal } from 'lucide-react';
 
 const Index = () => {
@@ -67,13 +68,19 @@ const Index = () => {
           <SystemStats stats={stats} />
         </section>
 
-        {/* CPU Chart */}
-        <section className="bg-card border border-border rounded-lg p-4">
-          <h2 className="text-lg font-semibold text-foreground mb-4">
-            Real-Time CPU Usage
-          </h2>
-          <CPUChart data={cpuHistory} />
-        </section>
+        {/* CPU Chart and Scheduler Info */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <section className="lg:col-span-2 bg-card border border-border rounded-lg p-4">
+            <h2 className="text-lg font-semibold text-foreground mb-4">
+              Real-Time CPU Usage
+            </h2>
+            <CPUChart data={cpuHistory} />
+          </section>
+          
+          <section>
+            <SchedulerInfo threads={threads} />
+          </section>
+        </div>
 
         {/* Thread Controls */}
         <section className="bg-card border border-border rounded-lg p-4">
