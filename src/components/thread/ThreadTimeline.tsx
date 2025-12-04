@@ -1,6 +1,9 @@
 import { Thread } from '@/types/thread';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button } from '@/components/ui/button';
+import { Download } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface ThreadTimelineProps {
   threads: Thread[];
@@ -37,6 +40,56 @@ const formatDuration = (ms: number) => {
     return `${minutes}m ${seconds % 60}s`;
   }
   return `${seconds}s`;
+};
+
+const exportToJSON = (threads: Thread[]) => {
+  const data = threads.map(t => ({
+    id: t.id,
+    name: t.name,
+    state: t.state,
+    priority: t.priority,
+    cpuUsage: t.cpuUsage.toFixed(2),
+    memoryUsage: t.memoryUsage.toFixed(2),
+    startTime: t.startTime.toISOString(),
+    executionTime: t.executionTime,
+    burstTime: t.burstTime,
+    progress: ((t.executionTime / t.burstTime) * 100).toFixed(1),
+  }));
+  
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `thread-data-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast.success('Exported as JSON');
+};
+
+const exportToCSV = (threads: Thread[]) => {
+  const headers = ['ID', 'Name', 'State', 'Priority', 'CPU Usage (%)', 'Memory (MB)', 'Start Time', 'Execution Time (ms)', 'Burst Time (ms)', 'Progress (%)'];
+  const rows = threads.map(t => [
+    t.id,
+    t.name,
+    t.state,
+    t.priority,
+    t.cpuUsage.toFixed(2),
+    t.memoryUsage.toFixed(2),
+    t.startTime.toISOString(),
+    t.executionTime,
+    t.burstTime,
+    ((t.executionTime / t.burstTime) * 100).toFixed(1),
+  ]);
+  
+  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `thread-data-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast.success('Exported as CSV');
 };
 
 export const ThreadTimeline = ({ threads }: ThreadTimelineProps) => {
@@ -86,12 +139,34 @@ export const ThreadTimeline = ({ threads }: ThreadTimelineProps) => {
   return (
     <Card className="bg-card border-border">
       <CardHeader className="pb-3">
-        <CardTitle className="text-lg font-mono text-foreground flex items-center gap-2">
-          <svg className="h-5 w-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
-          Execution Timeline
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg font-mono text-foreground flex items-center gap-2">
+            <svg className="h-5 w-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            Execution Timeline
+          </CardTitle>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => exportToJSON(threads)}
+              className="font-mono text-xs"
+            >
+              <Download className="h-3 w-3 mr-1" />
+              JSON
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => exportToCSV(threads)}
+              className="font-mono text-xs"
+            >
+              <Download className="h-3 w-3 mr-1" />
+              CSV
+            </Button>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         {/* Time axis labels */}
