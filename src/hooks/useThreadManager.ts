@@ -21,10 +21,10 @@ export const useThreadManager = () => {
   const threadCountRef = useRef(0);
   const { calculatePriorityCpuShare } = useScheduler();
 
-  const createThread = useCallback((customName?: string, priority?: ThreadPriority, parentId?: string): Thread => {
+  const createThread = useCallback((customName?: string, priority?: ThreadPriority, customBurstTime?: number, parentId?: string): Thread => {
     threadCountRef.current += 1;
-    // Random burst time between 10-30 seconds
-    const burstTime = (Math.floor(Math.random() * 21) + 10) * 1000;
+    // Use custom burst time or random between 10-30 seconds
+    const burstTime = customBurstTime || (Math.floor(Math.random() * 21) + 10) * 1000;
     const newThread: Thread = {
       id: generateThreadId(),
       name: customName || generateThreadName(threadCountRef.current),

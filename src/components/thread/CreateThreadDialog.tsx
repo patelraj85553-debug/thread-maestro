@@ -22,18 +22,21 @@ import { Plus } from 'lucide-react';
 import { ThreadPriority } from '@/types/thread';
 
 interface CreateThreadDialogProps {
-  onCreateThread: (name?: string, priority?: ThreadPriority) => void;
+  onCreateThread: (name?: string, priority?: ThreadPriority, burstTime?: number) => void;
 }
 
 export const CreateThreadDialog = ({ onCreateThread }: CreateThreadDialogProps) => {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [priority, setPriority] = useState<ThreadPriority>('medium');
+  const [burstTime, setBurstTime] = useState('');
 
   const handleCreate = () => {
-    onCreateThread(name || undefined, priority);
+    const burstTimeMs = burstTime ? parseInt(burstTime) * 1000 : undefined;
+    onCreateThread(name || undefined, priority, burstTimeMs);
     setName('');
     setPriority('medium');
+    setBurstTime('');
     setOpen(false);
   };
 
@@ -78,6 +81,20 @@ export const CreateThreadDialog = ({ onCreateThread }: CreateThreadDialogProps) 
                 <SelectItem value="critical" className="text-destructive">Critical</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="burstTime" className="text-foreground">Burst Time (seconds)</Label>
+            <Input
+              id="burstTime"
+              type="number"
+              min="1"
+              max="120"
+              value={burstTime}
+              onChange={(e) => setBurstTime(e.target.value)}
+              placeholder="Leave empty for random (10-30s)"
+              className="font-mono bg-secondary border-border text-foreground placeholder:text-muted-foreground"
+            />
           </div>
         </div>
         
