@@ -4,6 +4,7 @@ import { CPUChart } from '@/components/thread/CPUChart';
 import { ThreadControls } from '@/components/thread/ThreadControls';
 import { ThreadList } from '@/components/thread/ThreadList';
 import { SchedulerInfo } from '@/components/thread/SchedulerInfo';
+import { ThreadTimeline } from '@/components/thread/ThreadTimeline';
 import { Cpu, GitBranch, Terminal } from 'lucide-react';
 
 const Index = () => {
@@ -81,6 +82,11 @@ const Index = () => {
             <SchedulerInfo threads={threads} />
           </section>
         </div>
+
+        {/* Thread Timeline */}
+        <section>
+          <ThreadTimeline threads={threads} />
+        </section>
 
         {/* Thread Controls */}
         <section className="bg-card border border-border rounded-lg p-4">
