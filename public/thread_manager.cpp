@@ -54,17 +54,30 @@ struct ThreadInfo {
     int executionTime;    // in milliseconds
     int burstTime;        // total time to complete (in milliseconds)
     int parentId;
+    int arrivalTime;      // for Gantt Chart tracking
+    int completionTime;   // for Gantt Chart tracking
     
     ThreadInfo(int _id, string _name, ThreadPriority _priority, int _burstTime, int _parentId = -1)
         : id(_id), name(_name), state(ThreadState::RUNNING), priority(_priority),
           cpuUsage(0.0), memoryUsage(0.0), startTime(chrono::system_clock::now()),
-          executionTime(0), burstTime(_burstTime), parentId(_parentId) {
+          executionTime(0), burstTime(_burstTime), parentId(_parentId),
+          arrivalTime(0), completionTime(-1) {
         // Random initial memory usage between 50-200 MB
         random_device rd;
         mt19937 gen(rd());
         uniform_real_distribution<> dis(50.0, 200.0);
         memoryUsage = dis(gen);
     }
+};
+
+// ==================== GANTT CHART ENTRY ====================
+
+struct GanttEntry {
+    int threadId;
+    string threadName;
+    ThreadPriority priority;
+    int startTime;
+    int endTime;
 };
 
 // ==================== PRIORITY SCHEDULER ====================
@@ -148,11 +161,13 @@ public:
 class ThreadManager {
 private:
     vector<ThreadInfo> threads;
+    vector<GanttEntry> ganttChart;
     PriorityScheduler scheduler;
     int nextThreadId = 1;
     atomic<bool> simulationRunning{false};
     mutex mtx;
     int timeQuantum = 1000; // 1 second in milliseconds
+    int currentSimTime = 0; // Current simulation time for Gantt Chart
     
     // Statistics
     struct SystemStats {
@@ -314,9 +329,31 @@ public:
         cout << "[BULK] All threads stopped\n";
     }
     
-    // Simulation step - updates CPU usage and execution time
+    // Simulation step - updates CPU usage and execution time with Gantt tracking
     void simulationStep() {
         lock_guard<mutex> lock(mtx);
+        
+        // Get the highest priority running thread for Gantt Chart
+        ThreadInfo* currentThread = scheduler.getNextThread(threads);
+        
+        if (currentThread) {
+            // Record Gantt entry
+            GanttEntry entry;
+            entry.threadId = currentThread->id;
+            entry.threadName = currentThread->name;
+            entry.priority = currentThread->priority;
+            entry.startTime = currentSimTime;
+            entry.endTime = currentSimTime + 1;
+            
+            // Merge with previous entry if same thread
+            if (!ganttChart.empty() && 
+                ganttChart.back().threadId == currentThread->id &&
+                ganttChart.back().endTime == currentSimTime) {
+                ganttChart.back().endTime = currentSimTime + 1;
+            } else {
+                ganttChart.push_back(entry);
+            }
+        }
         
         for (auto& thread : threads) {
             if (thread.state == ThreadState::RUNNING) {
@@ -330,10 +367,13 @@ public:
                 if (thread.executionTime >= thread.burstTime) {
                     thread.state = ThreadState::COMPLETED;
                     thread.cpuUsage = 0;
-                    cout << "[COMPLETED] Thread '" << thread.name << "' finished execution\n";
+                    thread.completionTime = currentSimTime + 1;
+                    cout << "[COMPLETED] Thread '" << thread.name << "' finished at time " << (currentSimTime + 1) << "s\n";
                 }
             }
         }
+        
+        currentSimTime++;
     }
     
     // Get system statistics
@@ -461,6 +501,189 @@ public:
         
         stopSimulation();
     }
+    
+    // Display Gantt Chart ASCII Visualization
+    void displayGanttChart() {
+        lock_guard<mutex> lock(mtx);
+        
+        cout << "\n╔══════════════════════════════════════════════════════════════════════════════════╗\n";
+        cout << "║                         GANTT CHART VISUALIZATION                                 ║\n";
+        cout << "╚══════════════════════════════════════════════════════════════════════════════════╝\n\n";
+        
+        if (ganttChart.empty()) {
+            cout << "   No execution history. Run simulation first.\n\n";
+            return;
+        }
+        
+        // Find max time
+        int maxTime = 0;
+        for (const auto& entry : ganttChart) {
+            maxTime = max(maxTime, entry.endTime);
+        }
+        
+        // Display timeline header
+        cout << "   Time:     ";
+        for (int i = 0; i <= maxTime && i <= 30; i++) {
+            cout << setw(3) << i;
+        }
+        if (maxTime > 30) cout << " ...";
+        cout << "\n";
+        
+        cout << "             ";
+        for (int i = 0; i <= min(maxTime, 30); i++) {
+            cout << "───";
+        }
+        cout << "\n";
+        
+        // Build per-thread timeline
+        map<int, vector<pair<int, int>>> threadTimelines;
+        map<int, string> threadNames;
+        map<int, ThreadPriority> threadPriorities;
+        
+        for (const auto& entry : ganttChart) {
+            threadTimelines[entry.threadId].push_back({entry.startTime, entry.endTime});
+            threadNames[entry.threadId] = entry.threadName;
+            threadPriorities[entry.threadId] = entry.priority;
+        }
+        
+        // Display each thread's execution bar
+        for (const auto& [threadId, timeline] : threadTimelines) {
+            string name = threadNames[threadId];
+            if (name.length() > 10) name = name.substr(0, 10);
+            cout << "   " << setw(10) << left << name << " │";
+            
+            int pos = 0;
+            for (const auto& [start, end] : timeline) {
+                while (pos < start && pos < 30) {
+                    cout << "   ";
+                    pos++;
+                }
+                char sym = getPrioritySymbol(threadPriorities[threadId]);
+                while (pos < end && pos < 30) {
+                    cout << " " << sym << sym;
+                    pos++;
+                }
+            }
+            while (pos < min(maxTime, 30)) {
+                cout << "   ";
+                pos++;
+            }
+            cout << " │ " << priorityToString(threadPriorities[threadId]) << "\n";
+        }
+        
+        cout << "             ";
+        for (int i = 0; i <= min(maxTime, 30); i++) {
+            cout << "───";
+        }
+        cout << "\n\n";
+        
+        // Legend
+        cout << "   Legend: ## = CRITICAL  == = HIGH  ++ = MEDIUM  -- = LOW\n\n";
+        
+        // Detailed execution sequence
+        cout << "   ┌──────────────────────────────────────────────────────────────┐\n";
+        cout << "   │                   EXECUTION SEQUENCE                         │\n";
+        cout << "   ├──────┬────────────────┬───────────┬───────────┬──────────────┤\n";
+        cout << "   │ Slot │ Thread Name    │ Start (s) │ End (s)   │ Priority     │\n";
+        cout << "   ├──────┼────────────────┼───────────┼───────────┼──────────────┤\n";
+        
+        int slot = 1;
+        for (const auto& entry : ganttChart) {
+            cout << "   │ " << setw(4) << slot++ << " │ "
+                 << setw(14) << left << entry.threadName.substr(0, 14) << " │ "
+                 << setw(9) << right << entry.startTime << " │ "
+                 << setw(9) << entry.endTime << " │ "
+                 << setw(12) << left << priorityToString(entry.priority) << " │\n";
+        }
+        cout << "   └──────┴────────────────┴───────────┴───────────┴──────────────┘\n\n";
+        
+        // Scheduling statistics
+        displaySchedulingStats();
+    }
+    
+    // Display scheduling statistics
+    void displaySchedulingStats() {
+        cout << "   ┌──────────────────────────────────────────────────────────────┐\n";
+        cout << "   │                  SCHEDULING STATISTICS                       │\n";
+        cout << "   ├──────────────────────────────────────────────────────────────┤\n";
+        cout << "   │ Thread      Arrival  Burst  Complete  Turnaround  Waiting    │\n";
+        cout << "   │ ──────────  ───────  ─────  ────────  ──────────  ───────    │\n";
+        
+        float avgTAT = 0, avgWT = 0;
+        int count = 0;
+        
+        for (const auto& t : threads) {
+            if (t.completionTime > 0) {
+                int tat = t.completionTime - t.arrivalTime;
+                int wt = tat - (t.burstTime / 1000);
+                
+                cout << "   │ " << setw(10) << left << t.name.substr(0, 10)
+                     << "  " << setw(7) << right << t.arrivalTime
+                     << "  " << setw(5) << (t.burstTime / 1000)
+                     << "  " << setw(8) << t.completionTime
+                     << "  " << setw(10) << tat
+                     << "  " << setw(7) << wt << "    │\n";
+                
+                avgTAT += tat;
+                avgWT += wt;
+                count++;
+            }
+        }
+        
+        if (count > 0) {
+            avgTAT /= count;
+            avgWT /= count;
+            cout << "   ├──────────────────────────────────────────────────────────────┤\n";
+            cout << "   │ Average Turnaround Time: " << setw(6) << fixed << setprecision(2) << avgTAT << " seconds                 │\n";
+            cout << "   │ Average Waiting Time:    " << setw(6) << avgWT << " seconds                 │\n";
+        }
+        cout << "   └──────────────────────────────────────────────────────────────┘\n\n";
+    }
+    
+    char getPrioritySymbol(ThreadPriority p) {
+        switch (p) {
+            case ThreadPriority::CRITICAL: return '#';
+            case ThreadPriority::HIGH: return '=';
+            case ThreadPriority::MEDIUM: return '+';
+            case ThreadPriority::LOW: return '-';
+            default: return '.';
+        }
+    }
+    
+    // Export Gantt Chart to CSV
+    void exportGanttChart(const string& filename) {
+        lock_guard<mutex> lock(mtx);
+        
+        ofstream file(filename);
+        if (!file.is_open()) {
+            cout << "[ERROR] Could not create file: " << filename << "\n";
+            return;
+        }
+        
+        file << "GANTT CHART EXPORT\n";
+        file << "Slot,Thread ID,Thread Name,Start Time,End Time,Priority\n";
+        
+        int slot = 1;
+        for (const auto& entry : ganttChart) {
+            file << slot++ << ","
+                 << entry.threadId << ","
+                 << entry.threadName << ","
+                 << entry.startTime << ","
+                 << entry.endTime << ","
+                 << priorityToString(entry.priority) << "\n";
+        }
+        
+        file.close();
+        cout << "[EXPORT] Gantt chart exported to " << filename << "\n";
+    }
+    
+    // Clear Gantt chart data
+    void clearGanttChart() {
+        lock_guard<mutex> lock(mtx);
+        ganttChart.clear();
+        currentSimTime = 0;
+        cout << "[CLEAR] Gantt chart data cleared\n";
+    }
 };
 
 // ==================== MENU SYSTEM ====================
@@ -468,7 +691,7 @@ public:
 void displayMenu() {
     cout << "\n╔════════════════════════════════════════╗\n";
     cout << "║     THREAD MANAGEMENT SYSTEM           ║\n";
-    cout << "║     Priority Scheduling Algorithm      ║\n";
+    cout << "║   Priority Scheduling + Gantt Chart    ║\n";
     cout << "╠════════════════════════════════════════╣\n";
     cout << "║ 1.  Create Thread                      ║\n";
     cout << "║ 2.  Delete Thread                      ║\n";
@@ -482,8 +705,11 @@ void displayMenu() {
     cout << "║ 10. Display All Threads                ║\n";
     cout << "║ 11. Display System Statistics          ║\n";
     cout << "║ 12. Display Scheduler Info             ║\n";
-    cout << "║ 13. Run Simulation (5 steps)           ║\n";
-    cout << "║ 14. Export to CSV                      ║\n";
+    cout << "║ 13. Run Simulation                     ║\n";
+    cout << "║ 14. Display Gantt Chart                ║\n";
+    cout << "║ 15. Export Gantt Chart to CSV          ║\n";
+    cout << "║ 16. Clear Gantt Chart                  ║\n";
+    cout << "║ 17. Export Threads to CSV              ║\n";
     cout << "║ 0.  Exit                               ║\n";
     cout << "╚════════════════════════════════════════╝\n";
     cout << "Enter choice: ";
@@ -586,10 +812,23 @@ int main() {
             case 12:
                 manager.displaySchedulerInfo();
                 break;
-            case 13:
-                manager.runSimulationLoop(5);
+            case 13: {
+                int steps;
+                cout << "Enter number of simulation steps: ";
+                cin >> steps;
+                manager.runSimulationLoop(steps > 0 ? steps : 5);
                 break;
-            case 14: {
+            }
+            case 14:
+                manager.displayGanttChart();
+                break;
+            case 15:
+                manager.exportGanttChart("gantt_chart.csv");
+                break;
+            case 16:
+                manager.clearGanttChart();
+                break;
+            case 17: {
                 string filename;
                 cout << "Enter filename (e.g., threads.csv): ";
                 cin >> filename;
