@@ -5,9 +5,12 @@ import { ThreadControls } from '@/components/thread/ThreadControls';
 import { ThreadList } from '@/components/thread/ThreadList';
 import { SchedulerInfo } from '@/components/thread/SchedulerInfo';
 import { ThreadTimeline } from '@/components/thread/ThreadTimeline';
-import { Cpu, GitBranch, Terminal } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Cpu, GitBranch, Terminal, FileText } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const Index = () => {
+  const navigate = useNavigate();
   const {
     threads,
     cpuHistory,
@@ -48,11 +51,22 @@ const Index = () => {
               </div>
             </div>
             
-            <div className="flex items-center gap-2 bg-secondary rounded-lg px-3 py-2">
-              <Terminal className="h-4 w-4 text-primary" />
-              <span className="font-mono text-sm text-foreground">
-                OS Project - Operating System
-              </span>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 bg-secondary rounded-lg px-3 py-2">
+                <Terminal className="h-4 w-4 text-primary" />
+                <span className="font-mono text-sm text-foreground">
+                  OS Project
+                </span>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => navigate('/report')}
+                className="gap-2"
+              >
+                <FileText className="h-4 w-4" />
+                View Report
+              </Button>
             </div>
           </div>
         </div>
