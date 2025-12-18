@@ -5,7 +5,9 @@ import { ThreadControls } from '@/components/thread/ThreadControls';
 import { ThreadList } from '@/components/thread/ThreadList';
 import { SchedulerInfo } from '@/components/thread/SchedulerInfo';
 import { ThreadTimeline } from '@/components/thread/ThreadTimeline';
-import { Cpu, GitBranch, Terminal } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Cpu, GitBranch, Terminal, Download } from 'lucide-react';
+import { generateProjectReportPDF } from '@/utils/generateReportPDF';
 
 const Index = () => {
   const {
@@ -48,11 +50,22 @@ const Index = () => {
               </div>
             </div>
             
-            <div className="flex items-center gap-2 bg-secondary rounded-lg px-3 py-2">
-              <Terminal className="h-4 w-4 text-primary" />
-              <span className="font-mono text-sm text-foreground">
-                OS Project
-              </span>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 bg-secondary rounded-lg px-3 py-2">
+                <Terminal className="h-4 w-4 text-primary" />
+                <span className="font-mono text-sm text-foreground">
+                  OS Project
+                </span>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={generateProjectReportPDF}
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Download Report
+              </Button>
             </div>
           </div>
         </div>
